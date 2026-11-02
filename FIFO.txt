@@ -1,0 +1,199 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity fifo is
+    Port (
+        clk     : in  STD_LOGIC;
+        rst     : in  STD_LOGIC;
+        wren    : in  STD_LOGIC;
+        rden    : in  STD_LOGIC;
+        datain  : in  STD_LOGIC_VECTOR(7 downto 0);
+        empty   : out STD_LOGIC;
+        full    : out STD_LOGIC;
+        dataout : out STD_LOGIC_VECTOR(7 downto 0)
+    );
+end fifo;
+
+architecture Behavioral of fifo is
+
+    type fifo_memory is array (0 to 7)
+        of STD_LOGIC_VECTOR(7 downto 0);
+
+    signal memory : fifo_memory := (others => (others => '0'));
+
+    -- Read and write pointers
+    signal rdptr : integer range 0 to 7 := 0;
+    signal wrptr : integer range 0 to 7 := 0;
+
+    -- Number of elements in FIFO
+    signal count : integer range 0 to 8 := 0;
+
+    -- Output register
+    signal dataout_reg : STD_LOGIC_VECTOR(7 downto 0)
+                       := (others => '0');
+
+begin
+
+    process(clk)
+    begin
+
+        if rising_edge(clk) then
+
+            if rst = '1' then
+
+                rdptr       <= 0;
+                wrptr       <= 0;
+                count       <= 0;
+                dataout_reg <= (others => '0');
+
+            else
+
+                if (wren = '1') and (count < 8) then
+
+                    memory(wrptr) <= datain;
+
+                    -- Advance write pointer
+                    if wrptr = 7 then
+                        wrptr <= 0;
+                    else
+                        wrptr <= wrptr + 1;
+                    end if;
+
+                end if;
+
+                if (rden = '1') and (count > 0) then
+
+                    dataout_reg <= memory(rdptr);
+
+                    -- Advance read pointer
+                    if rdptr = 7 then
+                        rdptr <= 0;
+                    else
+                        rdptr <= rdptr + 1;
+                    end if;
+
+                end if;
+
+                if (wren = '1') and (count < 8) and
+                   not ((rden = '1') and (count > 0)) then
+
+                    count <= count + 1;
+
+                elsif (rden = '1') and (count > 0) and
+                      not ((wren = '1') and (count < 8)) then
+
+                    count <= count - 1;
+
+                end if;
+
+            end if;
+
+        end if;
+
+    end process;
+
+    empty <= '1' when count = 0 else '0';
+
+    full <= '1' when count = 8 else '0';
+
+    dataout <= dataout_reg;
+
+end Behavioral;
+
+Test Bench :
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity fifo_tb1 is
+end fifo_tb1;
+
+architecture Behavioral of fifo_tb1 is
+
+    component FIFO
+        Port (
+            clk     : in  STD_LOGIC;
+            rst     : in  STD_LOGIC;
+            wren    : in  STD_LOGIC;
+            rden    : in  STD_LOGIC;
+            datain  : in  STD_LOGIC_VECTOR(7 downto 0);
+            empty   : out STD_LOGIC;
+            full    : out STD_LOGIC;
+            dataout : out STD_LOGIC_VECTOR(7 downto 0)
+        );
+    end component;
+
+    signal clk     : STD_LOGIC := '0';
+    signal rst     : STD_LOGIC := '0';
+    signal wren    : STD_LOGIC := '0';
+    signal rden    : STD_LOGIC := '0';
+    signal datain  : STD_LOGIC_VECTOR(7 downto 0) := (others => '0');
+
+    signal empty   : STD_LOGIC;
+    signal full    : STD_LOGIC;
+    signal dataout : STD_LOGIC_VECTOR(7 downto 0);
+
+begin
+
+    UUT : FIFO
+        port map (
+            clk     => clk,
+            rst     => rst,
+            wren    => wren,
+            rden    => rden,
+            datain  => datain,
+            empty   => empty,
+            full    => full,
+            dataout => dataout
+        );
+
+    -- Clock: 10 ns period
+    clk_process : process
+    begin
+        clk <= '0';
+        wait for 5 ns;
+        clk <= '1';
+        wait for 5 ns;
+    end process;
+
+    -- Test sequence
+    stimulus : process
+    begin
+
+        -- Reset
+        rst  <= '1';
+        wren <= '0';
+        rden <= '0';
+
+        wait until rising_edge(clk);
+        wait until rising_edge(clk);
+
+        wait until falling_edge(clk);
+        rst  <= '0';
+        wren <= '1';
+
+        for i in 0 to 7 loop
+            datain <= std_logic_vector(to_unsigned(i + 1, 8));
+            wait until rising_edge(clk);
+            wait until falling_edge(clk);
+        end loop;
+
+        wren <= '0';
+        rden <= '1';
+
+        for i in 0 to 7 loop
+            wait until rising_edge(clk);
+            wait until falling_edge(clk);
+        end loop;
+
+        rden <= '0';
+
+        wait for 20 ns;
+
+        report "Simulation completed successfully";
+        wait;
+
+    end process;
+
+end Behavioral;

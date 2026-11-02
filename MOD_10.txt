@@ -1,0 +1,116 @@
+MOD N-counter code:
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+entity N_bit_counter is
+    generic (
+        N : integer := 4
+    );
+    Port (
+        clk   : in  STD_LOGIC;
+        reset : in  STD_LOGIC;
+        count : out STD_LOGIC_VECTOR(N-1 downto 0)
+    );
+end N_bit_counter;
+architecture Behavioral of N_bit_counter is
+    signal counter : unsigned(N-1 downto 0) := (others => '0');
+    -- Clock divider counter
+    signal clk_div : unsigned(26 downto 0) := (others => '0');
+    -- Divided 1 Hz clock
+    signal clk_1Hz : STD_LOGIC := '0';
+begin
+    -- Process 1: Divide 100 MHz clock to 1 Hz
+    process(clk, reset)
+    begin
+        if reset = '1' then
+            clk_div <= (others => '0');
+            clk_1Hz <= '0';
+        elsif rising_edge(clk) then
+            if clk_div = 49_999_999 then
+                clk_div <= (others => '0');
+                clk_1Hz <= not clk_1Hz;
+            else
+             clk_div <= clk_div + 1;
+            end if;
+        end if;
+    end process;
+    -- Process 2: Your original counter
+    process(clk_1Hz, reset)
+    begin
+        if reset = '1' then
+            counter <= (others => '0');
+        elsif rising_edge(clk_1Hz) then
+            if counter = 9 then
+                counter <= (others => '0');
+            else
+                counter <= counter + 1;
+            end if;
+        end if;
+    end process
+    count <= std_logic_vector(counter);
+end Behavioral;
+
+ 
+Test Bench code:-
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+entity N_bit_counter_tb is
+end N_bit_counter_tb;
+architecture Behavioral of N_bit_counter_tb is
+    -- Component Declaration
+    component N_bit_counter
+        generic (
+            N : integer := 4
+        );
+        Port (
+            clk   : in  STD_LOGIC;
+            reset : in  STD_LOGIC;
+            count : out STD_LOGIC_VECTOR(N-1 downto 0)
+        );
+    end component;
+    -- Testbench signals
+    signal clk   : STD_LOGIC := '0';
+    signal reset : STD_LOGIC := '0';
+    signal count : STD_LOGIC_VECTOR(3 downto 0);
+begin
+    -- Instantiate DUT
+    uut: N_bit_counter
+        generic map (
+            N => 4
+        )
+        port map (
+            clk   => clk,
+            reset => reset,
+            count => count
+        );
+    -- 100 MHz Clock
+    -- Period = 10 ns
+    clk_process : process
+    begin
+        while true loop
+            clk <= '0';
+            wait for 5 ns;
+            clk <= '1';
+            wait for 5 ns;
+        end loop;
+    end process;
+    -- Reset and simulation
+    stimulus_process : process
+    begin
+        -- Apply reset
+        reset <= '1';
+        wait for 100 ns;
+        -- Release reset
+        reset <= '0';
+        -- Wait for counter operation
+        wait for 2 sec;
+        -- Apply reset again
+        reset <= '1';
+        wait for 100 ns;
+        reset <= '0';
+        wait for 2 sec;
+
+        -- End simulation
+        wait;
+    end process;
+end Behavioral;

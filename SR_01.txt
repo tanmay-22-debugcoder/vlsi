@@ -1,0 +1,103 @@
+------------------------------------------------------------------------
+ModuleName:shiftreg-Behavioral--Design :4-bitUniversalShiftRegister
+----------------------------------------------------------------------
+libraryIEEE;
+useIEEE.STD_LOGIC_1164.ALL;
+entityshiftregis
+Port(clk :inSTD_LOGIC;
+rst :inSTD_LOGIC;
+load:inSTD_LOGIC;--parallelloadenable
+si :inSTD_LOGIC;--serialinput
+pi :inSTD_LOGIC_VECTOR(3downto0);--parallelinput
+mode:inSTD_LOGIC_VECTOR(1downto0);--modeselect
+po :outSTD_LOGIC_VECTOR(3downto0);--paralleloutput
+so :outSTD_LOGIC);--serialoutput
+endshiftreg;
+architectureBehavioralofshiftregis
+signalreg:STD_LOGIC_VECTOR(3downto0);
+begin
+process(clk,rst)
+begin
+ifrst='1'then
+reg<="0000";
+elsifrising_edge(clk)then
+ifload='1'then
+reg<=pi;--synchronousparallelload
+else
+casemodeis
+when"00"=>--hold(nooperation)
+reg<=reg;
+when"01"=>--shiftright:si->MSB
+reg<=si&reg(3downto1);
+when"10"=>--shiftleft :si->LSB
+reg<=reg(2downto0)&si;
+whenothers=>--"11":parallelload
+reg<=pi;
+endcase;
+endif;
+endif;
+endprocess;
+po<=reg;
+so<=reg(0);--serialoutput(LSB)
+endBehavioral;
+
+xdc
+##Constraintsfile(shiftreg.xdc)--Basys3/Artix-7(xc7a35tcpg236-1) ##Clock(100MHzon-boardoscillator) set_propertyPACKAGE_PINW5 [get_portsclk] set_propertyIOSTANDARDLVCMOS33[get_portsclk] create_clock-period10.00-namesys_clk[get_portsclk] ##Reset (centrepushbutton,btnC) set_propertyPACKAGE_PINU18[get_portsrst] set_propertyIOSTANDARDLVCMOS33[get_portsrst] ##Control/datainputs(slideswitches) set_propertyPACKAGE_PINV17[get_portsload]set_propertyPACKAGE_PINV16[get_portssi] set_propertyPACKAGE_PINW16[get_ports{pi[0]}] set_propertyPACKAGE_PINW17[get_ports{pi[1]}] set_propertyPACKAGE_PINW15[get_ports{pi[2]}] set_propertyPACKAGE_PINV15[get_ports{pi[3]}] set_propertyPACKAGE_PINW14[get_ports{mode[0]}] set_propertyPACKAGE_PINW13[get_ports{mode[1]}] ##Outputs (LEDs) set_propertyPACKAGE_PINU16[get_ports{po[0]}] set_propertyPACKAGE_PINE19[get_ports{po[1]}] set_propertyPACKAGE_PINU19[get_ports{po[2]}] set_propertyPACKAGE_PINV19[get_ports{po[3]}] set_propertyPACKAGE_PINW18[get_portsso] ##I/Ostandardforallremainingports set_propertyIOSTANDARDLVCMOS33[get_portsload] set_propertyIOSTANDARDLVCMOS33[get_portssi] set_propertyIOSTANDARDLVCMOS33[get_ports{pi[0]}] set_propertyIOSTANDARDLVCMOS33[get_ports{pi[1]}] set_propertyIOSTANDARDLVCMOS33[get_ports{pi[2]}] set_propertyIOSTANDARDLVCMOS33[get_ports{pi[3]}] set_propertyIOSTANDARDLVCMOS33[get_ports{mode[0]}] set_propertyIOSTANDARDLVCMOS33[get_ports{mode[1]}] set_propertyIOSTANDARDLVCMOS33[get_ports{po[0]}] set_propertyIOSTANDARDLVCMOS33[get_ports{po[1]}] set_propertyIOSTANDARDLVCMOS33[get_ports{po[2]}] set_propertyIOSTANDARDLVCMOS33[get_ports{po[3]}] set_propertyIOSTANDARDLVCMOS33[get_portsso]
+
+tb
+------------------------------------------------------------------------
+Testbench:shifreg_tb.vhd (forshiftreg)
+----------------------------------------------------------------------
+libraryIEEE;
+useIEEE.STD_LOGIC_1164.ALL;
+entityshifreg_tbis
+endshifreg_tb;
+architectureBehavioralofshifreg_tbis
+componentshiftreg
+Port(clk :inSTD_LOGIC;
+rst :inSTD_LOGIC;
+load:inSTD_LOGIC;
+si :inSTD_LOGIC;
+pi :inSTD_LOGIC_VECTOR(3downto0);
+mode:inSTD_LOGIC_VECTOR(1downto0);
+po :outSTD_LOGIC_VECTOR(3downto0);
+so :outSTD_LOGIC);
+endcomponent;
+signalclk,rst,load,si,so:STD_LOGIC:='0';
+signalpi,po:STD_LOGIC_VECTOR(3downto0):=(others=>'0');
+signalmode :STD_LOGIC_VECTOR(1downto0):="00";
+constantTclk:time:=10ns;
+begin
+uut:shiftregportmap(
+clk=>clk,rst=>rst,load=>load,si=>si,
+pi=>pi,mode=>mode,po=>po,so=>so);
+--clockgeneration
+clk_proc:process
+begin
+clk<='0';waitforTclk/2;
+clk<='1';waitforTclk/2;
+endprocess;
+--stimulus
+stim_proc:process
+begin
+rst<='1';waitfor30ns;
+rst<='0';
+pi<="1010";
+load<='1';waitforTclk;
+load<='0';--loada
+mode<="01";
+si<='1';
+waitfor4*Tclk;--shiftright
+mode<="10";
+si<='0';
+waitfor4*Tclk;--shiftleft
+pi<="1101";
+load<='1';waitforTclk;
+load<='0';--loadd
+mode<="00";
+waitfor3*Tclk;--hold
+mode<="11";
+waitfor4*Tclk;--parallelload
+wait;
+endprocess;
+endBehavioral;
